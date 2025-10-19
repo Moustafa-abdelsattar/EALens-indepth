@@ -1071,9 +1071,9 @@ if __name__ == '__main__':
     is_production = os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('RAILWAY_PROJECT_ID')
     
     if is_production:
-        print(f"🚀 Starting production server on port {port}")
+        print(f"Starting production server on port {port}")
         app.run(host='0.0.0.0', port=port, debug=False)
     else:
-        print(f"🔧 Starting development server on 0.0.0.0:{port}")
+        print(f"Starting development server on 0.0.0.0:{port}")
         # Use 0.0.0.0 in development for deployment health checks to work
         app.run(debug=False, host='0.0.0.0', port=port)

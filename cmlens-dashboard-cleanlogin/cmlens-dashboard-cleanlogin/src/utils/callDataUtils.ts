@@ -16,12 +16,25 @@ export function parseCallDataFromExcel(file: File): Promise<CallData[]> {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-        const calls: CallData[] = jsonData.map((row: any) => ({
+        const calls: CallData[] = jsonData.map((row: any) => {
+          // Parse compliance score - check if it's inverted based on violation flag
+          let complianceScore = Number(row.compliance_score) || 0;
+          const hasViolation = row.has_violation === true || row.has_violation === 'TRUE' || row.has_violation === 'true';
+
+          // If compliance_score is binary (0 or 1) and inversely correlated with violations,
+          // invert it: 1 becomes 0 (non-compliant if has violation), 0 becomes 1 (compliant if no violation)
+          if (complianceScore === 1 && hasViolation) {
+            complianceScore = 0; // Has violation means non-compliant
+          } else if (complianceScore === 0 && !hasViolation) {
+            complianceScore = 1; // No violation means compliant
+          }
+
+          return {
           agent_id: String(row.agent_id || ''),
           agent_tone_sentiment: String(row.agent_tone_sentiment || ''),
           agent_turns: Number(row.agent_turns) || 0,
           call_duration_seconds: Number(row.call_duration_seconds) || 0,
-          compliance_score: Number(row.compliance_score) || 0,
+          compliance_score: complianceScore,
           conversation_complexity: String(row.conversation_complexity || 'medium'),
           conversation_text: String(row.conversation_text || ''),
           customer_id: String(row.customer_id || ''),
@@ -42,7 +55,8 @@ export function parseCallDataFromExcel(file: File): Promise<CallData[]> {
           token_count: Number(row.token_count) || 0,
           total_turns: Number(row.total_turns) || 0,
           unique_tokens: Number(row.unique_tokens) || 0,
-        }));
+        };
+        });
 
         resolve(calls);
       } catch (error) {
@@ -75,7 +89,11 @@ export function aggregateCallDataByAgent(calls: CallData[]): AgentCallMetrics[] 
     const total_calls = agentCalls.length;
 
     // Average compliance score
-    const avg_compliance_score = agentCalls.reduce((sum, call) => sum + call.compliance_score, 0) / total_calls;
+    // Handle both binary (0/1) and percentage (0-100) formats
+    const rawComplianceScore = agentCalls.reduce((sum, call) => sum + call.compliance_score, 0) / total_calls;
+    const avg_compliance_score = rawComplianceScore <= 1
+      ? rawComplianceScore * 100  // Convert binary/decimal to percentage
+      : rawComplianceScore;        // Already in percentage format
 
     // Average text quality score
     const avg_text_quality_score = agentCalls.reduce((sum, call) => sum + call.text_quality_score, 0) / total_calls;

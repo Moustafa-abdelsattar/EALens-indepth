@@ -31,7 +31,7 @@ export function parseSalesDataFromExcel(file: File): Promise<SalesData[]> {
             return 0;
           };
 
-          // Parse currency strings (e.g., "$8,980" -> 8980)
+          // Parse currency strings (e.g., "$8,980" -> 8980) and handle comma-separated numbers
           const parseCurrency = (val: any): number => {
             if (typeof val === 'string') {
               return parseFloat(val.replace(/[$,]/g, '')) || 0;
@@ -39,27 +39,60 @@ export function parseSalesDataFromExcel(file: File): Promise<SalesData[]> {
             return Number(val) || 0;
           };
 
-          return {
-            members: String(row.Members || row.members || ''),
-            team: String(row.Team || row.team || ''),
-            target_cash: parseCurrency(row['Target Cash'] || row.target_cash),
-            target_contract: Number(row['Target Contract'] || row.target_contract) || 0,
-            usd: parseCurrency(row.USD || row.usd),
-            refund: parseCurrency(row.Refund || row.refund),
-            usd_after_refund: parseCurrency(row['USD After Refund'] || row.usd_after_refund),
-            contracts: Number(row.Contracts || row.contracts) || 0,
-            salary_contracts: Number(row['Salary Contracts'] || row.salary_contracts) || 0,
-            salary_contract_refund: Number(row['Salary Contract Refund'] || row.salary_contract_refund) || 0,
-            total_salary_contract: Number(row['Total Salary Contract'] || row.total_salary_contract) || 0,
-            installments: Number(row.Installments || row.installments) || 0,
-            total_cash: parseCurrency(row['Total Cash'] || row.total_cash),
-            bm: Number(row.BM || row.bm) || 0,
-            cash_achievement: parsePercentage(row['Cash achievement'] || row.cash_achievement),
-            contract_achievement: parsePercentage(row['Contract Achievement'] || row.contract_achievement),
-            unit_price: parseCurrency(row['Unit Price'] || row.unit_price),
-            cash_gap: parseCurrency(row['Cash Gap'] || row.cash_gap),
-            contract_gap: Number(row['Contract Gap'] || row.contract_gap) || 0,
-          };
+          // Check if this is team-level data (has "Teams" column instead of "Members")
+          const isTeamData = 'Teams' in row || 'teams' in row;
+
+          if (isTeamData) {
+            // Parse team-level aggregated data
+            // In team data: "Team" column has the actual team name, "Teams" column has member/leader name
+            const teamName = String(row.Team || row.team || '');
+            const members = String(row.Teams || row.teams || row.Team || row.team || '');
+
+            return {
+              members: members,
+              team: teamName,
+              target_cash: parseCurrency(row['Total Target Cash'] || row.total_target_cash || 0),
+              target_contract: parseCurrency(row['Total Contract Target'] || row.total_contract_target || 0),
+              usd: 0, // Not in team data
+              refund: 0, // Not in team data
+              usd_after_refund: 0, // Not in team data
+              contracts: 0, // Not in team data
+              salary_contracts: 0, // Not in team data
+              salary_contract_refund: 0, // Not in team data
+              total_salary_contract: parseCurrency(row['MTD Contract Total'] || row.mtd_contract_total || 0),
+              installments: 0, // Not in team data
+              total_cash: parseCurrency(row['Cash Total'] || row.cash_total || 0),
+              bm: 0, // Not in team data
+              cash_achievement: parsePercentage(row['Cash Target Achieved'] || row.cash_target_achieved || 0),
+              contract_achievement: parsePercentage(row['Contract Target Achieved'] || row.contract_target_achieved || 0),
+              unit_price: parseCurrency(row['Units Price'] || row.units_price || 0),
+              cash_gap: 0, // Can be calculated if needed
+              contract_gap: 0, // Can be calculated if needed
+            };
+          } else {
+            // Parse individual agent data
+            return {
+              members: String(row.Members || row.members || ''),
+              team: String(row.Team || row.team || ''),
+              target_cash: parseCurrency(row['Target Cash'] || row.target_cash),
+              target_contract: Number(row['Target Contract'] || row.target_contract) || 0,
+              usd: parseCurrency(row.USD || row.usd),
+              refund: parseCurrency(row.Refund || row.refund),
+              usd_after_refund: parseCurrency(row['USD After Refund'] || row.usd_after_refund),
+              contracts: Number(row.Contracts || row.contracts) || 0,
+              salary_contracts: Number(row['Salary Contracts'] || row.salary_contracts) || 0,
+              salary_contract_refund: Number(row['Salary Contract Refund'] || row.salary_contract_refund) || 0,
+              total_salary_contract: Number(row['Total Salary Contract'] || row.total_salary_contract) || 0,
+              installments: Number(row.Installments || row.installments) || 0,
+              total_cash: parseCurrency(row['Total Cash'] || row.total_cash),
+              bm: Number(row.BM || row.bm) || 0,
+              cash_achievement: parsePercentage(row['Cash achievement'] || row.cash_achievement),
+              contract_achievement: parsePercentage(row['Contract Achievement'] || row.contract_achievement),
+              unit_price: parseCurrency(row['Unit Price'] || row.unit_price),
+              cash_gap: parseCurrency(row['Cash Gap'] || row.cash_gap),
+              contract_gap: Number(row['Contract Gap'] || row.contract_gap) || 0,
+            };
+          }
         });
 
         resolve(salesData);
